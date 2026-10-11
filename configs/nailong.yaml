@@ -1,0 +1,23 @@
+# ---- 摄像头参数 ----
+camera_name: "video0"        # /dev/video0
+image_width: 1280
+image_height: 720
+usb_frame_rate: 30
+usb_exposure: -5
+
+# ---- 模型参数 ----
+model_path: "model/nailong.onnx"
+input_size: 224              # ResNet50 输入尺寸
+min_confidence: 0.8          # 置信度阈值
+
+# ---- 网格定位 ----
+# 把画面切成 grid_rows x grid_cols，逐格推理，命中的格子画识别框
+# 1x1 = 整图一个框（最快）；2x2 或 3x3 = 局部框（更准但更慢）
+grid_rows: 2
+grid_cols: 2
+
+# ---- 推理频率 ----
+infer_every: 2               # 每 N 帧推理一次（CPU 建议 2~5）
+
+# ---- 显示 ----
+show: false                   # false = 无窗口（headless / NUC 无显示器）
