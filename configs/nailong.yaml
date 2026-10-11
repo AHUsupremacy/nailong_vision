@@ -29,4 +29,4 @@ grid_cols: 2
 infer_every: 2               # 每 N 帧推理一次（CPU 建议 2~5）
 
 # ---- 显示 ----
-show: false                  # false = 无窗口（headless / NUC 无显示器）
+show: true                  # false = 无窗口（headless / NUC 无显示器）

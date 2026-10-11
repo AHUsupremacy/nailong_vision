@@ -11,7 +11,8 @@
 
 const std::string keys =
   "{help h usage ? |      | 输出命令行参数说明}"
-  "{@config-path   | configs/nailong.yaml | 位置参数，yaml配置文件路径 }";
+  "{@config-path   | configs/nailong.yaml | 位置参数，yaml配置文件路径 }"
+  "{headless       |      | 无窗口模式（覆盖 yaml 里的 show）}";
 
 int main(int argc, char * argv[])
 {
@@ -24,6 +25,8 @@ int main(int argc, char * argv[])
 
   auto yaml = YAML::LoadFile(config_path);
   bool show = yaml["show"] ? yaml["show"].as<bool>() : true;
+  cv::CommandLineParser cli2(argc, argv, keys);
+  if (cli2.has("headless")) show = false;
 
   tools::Exiter exiter;
 
@@ -102,6 +105,7 @@ int main(int argc, char * argv[])
   std::cout << "[nailong_vision] done" << std::endl;
   return 0;
 }
+
 
 
 
