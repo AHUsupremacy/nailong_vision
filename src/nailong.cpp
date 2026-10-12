@@ -7,9 +7,11 @@
 #include <yaml-cpp/yaml.h>
 
 #include <Eigen/Geometry>
+#include <atomic>
+#include <thread>
 
 #include "io/camera.hpp"
-#include "io/dm_imu/dm_imu.hpp"
+#include "io/gimbal/gimbal.hpp"
 #include "tasks/nailong/solver.hpp"
 #include "tasks/nailong/detector.hpp"
 #include "tasks/nailong/yolox_detector.hpp"
@@ -38,11 +40,37 @@ int main(int argc, char * argv[])
 
   // 方向解算器: 像素 -> 云台系/世界系 yaw,pitch
   nailong::Solver solver(config_path);
-  // IMU: use_imu: true 时读取 DM_IMU 四元数，把方向转到世界系
-  // 没有 IMU 时 R_gimbal2world = I，ypr_in_world == ypr_in_gimbal
-  std::unique_ptr<io::DM_IMU> imu;
-  const bool use_imu = yaml["use_imu"] ? yaml["use_imu"].as<bool>() : false;
-  if (use_imu) imu = std::make_unique<io::DM_IMU>();
+  // 云台串口 (standard_mpc 协议): 收 GimbalToVision 四元数, 发 VisionToGimbal 角度
+  // use_gimbal: false 时 R_gimbal2world = I，ypr_in_world == ypr_in_gimbal
+  std::unique_ptr<io::Gimbal> gimbal;
+  const bool use_gimbal = yaml["use_gimbal"] ? yaml["use_gimbal"].as<bool>() : false;
+  const bool send_to_gimbal = yaml["send_to_gimbal"] ? yaml["send_to_gimbal"].as<bool>() : false;
+  if (use_gimbal) gimbal = std::make_unique<io::Gimbal>(config_path);
+  if (send_to_gimbal && !use_gimbal) {
+    std::cout << "[nailong_vision] send_to_gimbal 需要 use_gimbal: true" << std::endl;
+    return 1;
+  }
+
+  // 发送线程共享的最新解算结果（世界系角度, rad）
+  std::atomic<bool> has_target{false};
+  std::atomic<double> send_yaw{0.0}, send_pitch{0.0};
+  std::atomic<bool> quit{false};
+  std::thread send_thread;
+  if (send_to_gimbal) {
+    send_thread = std::thread([&]() {
+      // 100Hz 下发, 云台侧自己闭环
+      auto last = std::chrono::steady_clock::now();
+      while (!quit) {
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration<double>(now - last).count() < 0.01) continue;
+        last = now;
+        if (has_target)
+          gimbal->send(true, false, (float)send_yaw.load(), 0, 0, (float)send_pitch.load(), 0, 0);
+        else
+          gimbal->send(false, false, 0, 0, 0, 0, 0, 0);
+      }
+    });
+  }
 
   io::Camera camera(config_path);
   auto yaml_all = YAML::LoadFile(config_path);
@@ -92,12 +120,15 @@ int main(int argc, char * argv[])
     bool solved = false;
     if (found) {
       try {
-        if (use_imu && imu) {
-          // 用图像时间戳附近的姿态插值
-          solver.set_R_gimbal2world(imu->imu_at(t));
+        if (use_gimbal && gimbal) {
+          // 图像时间戳附近的四元数插值（同 standard_mpc auto_aim_debug_mpc）
+          solver.set_R_gimbal2world(gimbal->q(t));
         }
         sol = solver.solve(last_result[0].box);
         solved = true;
+        has_target = true;
+        send_yaw = sol.yaw_in_world;
+        send_pitch = sol.pitch_in_world;
         if (frame_idx % 15 == 0) {
           auto to_deg = [](double rad) { return rad * 180.0 / CV_PI; };
           std::cout << "[solver] yaw_g=" << to_deg(sol.yaw_in_gimbal) << " pitch_g=" << to_deg(sol.pitch_in_gimbal)
@@ -114,6 +145,7 @@ int main(int argc, char * argv[])
       std::cout << "[nailong_vision] " << (found ? "Nailong!" : "No Nailong") << std::endl;
       last_state = found;
     }
+    if (!found) has_target = false;
 
     if (show) {
       // 画识别框
@@ -154,6 +186,8 @@ int main(int argc, char * argv[])
     frame_idx++;
   }
 
+  quit = true;
+  if (send_thread.joinable()) send_thread.join();
   std::cout << "[nailong_vision] done" << std::endl;
   return 0;
 }

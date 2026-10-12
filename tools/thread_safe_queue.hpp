@@ -9,7 +9,7 @@
 
 namespace tools
 {
-template <typename T, bool PopWhenFull = true>
+template <typename T, bool PopWhenFull = false>
 class ThreadSafeQueue
 {
 public:
@@ -42,14 +42,60 @@ public:
 
     not_empty_condition_.wait(lock, [this] { return !queue_.empty(); });
 
+    if (queue_.empty()) {
+      std::cerr << "Error: Attempt to pop from an empty queue." << std::endl;
+      return;
+    }
+
     value = queue_.front();
     queue_.pop();
+  }
+
+  T pop()
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    not_empty_condition_.wait(lock, [this] { return !queue_.empty(); });
+
+    T value = std::move(queue_.front());
+    queue_.pop();
+    return std::move(value);
+  }
+
+  T front()
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    not_empty_condition_.wait(lock, [this] { return !queue_.empty(); });
+
+    return queue_.front();
+  }
+
+  void back(T & value)
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    if (queue_.empty()) {
+      std::cerr << "Error: Attempt to access the back of an empty queue." << std::endl;
+      return;
+    }
+
+    value = queue_.back();
   }
 
   bool empty()
   {
     std::unique_lock<std::mutex> lock(mutex_);
     return queue_.empty();
+  }
+
+  void clear()
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!queue_.empty()) {
+      queue_.pop();
+    }
+    not_empty_condition_.notify_all();  // 如果其他线程正在等待队列不为空，这样可以唤醒它们
   }
 
 private:
@@ -62,4 +108,4 @@ private:
 
 }  // namespace tools
 
-#endif
+#endif  // TOOLS__THREAD_SAFE_QUEUE_HPP

@@ -1,6 +1,6 @@
 add_subdirectory(serial)
 
-add_library(io STATIC camera.cpp usbcamera.cpp hikrobot/hikrobot.cpp dm_imu/dm_imu.cpp)
+add_library(io STATIC camera.cpp usbcamera.cpp hikrobot/hikrobot.cpp gimbal/gimbal.cpp)
 target_include_directories(io PUBLIC
   ${PROJECT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/hikrobot/include

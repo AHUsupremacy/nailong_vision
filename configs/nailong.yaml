@@ -38,8 +38,12 @@ R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 # 装到云台上后用 calibrate_handeye 标定替换
 R_camera2gimbal: [0, 0, 1, -1, 0, 0, 0, -1, 0]
 t_camera2gimbal: [0, 0, 0]
-# 是否读取 DM_IMU 四元数（串口 /dev/ttyACM0）。false 时世界系角度=云台系角度
-use_imu: false
+# ---- 云台串口（standard_mpc 协议，io/gimbal）----
+# use_gimbal: 读取云台发来的 GimbalToVision（四元数/yaw/pitch/弹速）
+# send_to_gimbal: 检测到奶龙时 100Hz 下发 VisionToGimbal 世界系 yaw/pitch
+use_gimbal: false
+send_to_gimbal: false
+com_port: "/dev/ttyACM0"
 
 # ---- ResNet50 网格检测参数（detector 为 grid 时生效）----
 model_path: "model/nailong.onnx"
