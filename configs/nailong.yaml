@@ -25,7 +25,7 @@ yolox_input_size: 416         # tiny 模型输入尺寸
 yolox_confidence: 0.3         # 置信度阈值
 yolox_nms: 0.45               # NMS IoU 阈值
 yolox_class_id: 1
-yolox_expand: 1.4             # 框扩展系数：模型只框脸部核心，1.4 外扩包住整个头（跟踪用中心，不受影响）             # labels.txt: 0=bg 1=nailong 2=anime 3=human 4=emoji 5=long 6=other 7=htgt
+yolox_expand: 3.0             # 框扩展系数：模型只框脸部核心，3.0 外扩包住整个头（跟踪用中心，不受影响）             # labels.txt: 0=bg 1=nailong 2=anime 3=human 4=emoji 5=long 6=other 7=htgt
 
 # ---- ResNet50 网格检测参数（detector 为 grid 时生效）----
 model_path: "model/nailong.onnx"
