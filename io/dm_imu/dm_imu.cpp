@@ -7,6 +7,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <unistd.h>
 
 #include "tools/crc.hpp"
 #include "tools/math_tools.hpp"
