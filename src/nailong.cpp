@@ -6,7 +6,11 @@
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 
+#include <Eigen/Geometry>
+
 #include "io/camera.hpp"
+#include "io/dm_imu/dm_imu.hpp"
+#include "tasks/nailong/solver.hpp"
 #include "tasks/nailong/detector.hpp"
 #include "tasks/nailong/yolox_detector.hpp"
 #include "tools/exiter.hpp"
@@ -31,6 +35,14 @@ int main(int argc, char * argv[])
   if (cli2.has("headless")) show = false;
 
   tools::Exiter exiter;
+
+  // 方向解算器: 像素 -> 云台系/世界系 yaw,pitch
+  nailong::Solver solver(config_path);
+  // IMU: use_imu: true 时读取 DM_IMU 四元数，把方向转到世界系
+  // 没有 IMU 时 R_gimbal2world = I，ypr_in_world == ypr_in_gimbal
+  std::unique_ptr<io::DM_IMU> imu;
+  const bool use_imu = yaml["use_imu"] ? yaml["use_imu"].as<bool>() : false;
+  if (use_imu) imu = std::make_unique<io::DM_IMU>();
 
   io::Camera camera(config_path);
   auto yaml_all = YAML::LoadFile(config_path);
@@ -75,6 +87,28 @@ int main(int argc, char * argv[])
 
     bool found = !last_result.empty();
 
+    // 解算框中心方向（每帧都用最新 IMU 姿态）
+    nailong::Solution sol;
+    bool solved = false;
+    if (found) {
+      try {
+        if (use_imu && imu) {
+          // 用图像时间戳附近的姿态插值
+          solver.set_R_gimbal2world(imu->imu_at(t));
+        }
+        sol = solver.solve(last_result[0].box);
+        solved = true;
+        if (frame_idx % 15 == 0) {
+          auto to_deg = [](double rad) { return rad * 180.0 / CV_PI; };
+          std::cout << "[solver] yaw_g=" << to_deg(sol.yaw_in_gimbal) << " pitch_g=" << to_deg(sol.pitch_in_gimbal)
+                    << " yaw_w=" << to_deg(sol.yaw_in_world) << " pitch_w=" << to_deg(sol.pitch_in_world)
+                    << " (deg)" << std::endl;
+        }
+      } catch (const std::exception & e) {
+        std::cout << "[solver] error: " << e.what() << std::endl;
+      }
+    }
+
     // 状态变化时打印（headless 模式下也能看）
     if (found != last_state) {
       std::cout << "[nailong_vision] " << (found ? "Nailong!" : "No Nailong") << std::endl;
@@ -87,6 +121,11 @@ int main(int argc, char * argv[])
         cv::rectangle(img, d.box, cv::Scalar(0, 0, 255), 3);
         std::ostringstream label;
         label << "Nailong " << std::fixed << std::setprecision(0) << d.confidence * 100 << "%";
+        if (&d == &last_result[0] && solved) {
+          auto to_deg = [](double rad) { return rad * 180.0 / CV_PI; };
+          label << " yaw:" << std::setprecision(1) << to_deg(sol.yaw_in_gimbal)
+                << " pit:" << to_deg(sol.pitch_in_gimbal);
+        }
         int base = 0;
         cv::Size text_size = cv::getTextSize(label.str(), cv::FONT_HERSHEY_SIMPLEX, 0.8, 2, &base);
         cv::Point text_org(d.box.x + 5, d.box.y + text_size.height + 8);

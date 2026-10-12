@@ -1,8 +1,11 @@
-add_library(io STATIC camera.cpp usbcamera.cpp hikrobot/hikrobot.cpp)
+add_subdirectory(serial)
+
+add_library(io STATIC camera.cpp usbcamera.cpp hikrobot/hikrobot.cpp dm_imu/dm_imu.cpp)
 target_include_directories(io PUBLIC
   ${PROJECT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/hikrobot/include)
-target_link_libraries(io ${OpenCV_LIBS} yaml-cpp usb-1.0)
+  ${CMAKE_CURRENT_SOURCE_DIR}/hikrobot/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/serial/include)
+target_link_libraries(io ${OpenCV_LIBS} yaml-cpp usb-1.0 serial)
 
 # 海康 MVS SDK：按架构选 .so
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")

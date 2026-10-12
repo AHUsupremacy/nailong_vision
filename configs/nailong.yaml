@@ -27,6 +27,20 @@ yolox_nms: 0.45               # NMS IoU 阈值
 yolox_class_id: 1
 yolox_expand: 3.0             # 框扩展系数：模型只框脸部核心，3.0 外扩包住整个头（跟踪用中心，不受影响）             # labels.txt: 0=bg 1=nailong 2=anime 3=human 4=emoji 5=long 6=other 7=htgt
 
+# ---- 解算参数（格式同 sp_vision standard3.yaml）----
+# camera_matrix / distort_coeffs 为占位值，需用 calibration/calibrate_camera.cpp 标定后替换
+# 当前分辨率 1440x1080 的粗略占位: fx=fy=1440, cx=720, cy=540
+camera_matrix: [1440.0, 0, 720.0, 0, 1440.0, 540.0, 0, 0, 1]
+distort_coeffs: [0, 0, 0, 0, 0]
+# 云台->IMUbody 旋转（IMU 装的角度和云台不一致时改）
+R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+# 相机->云台 外参占位: 相机z朝前/x朝右/y朝下 -> 云台x前/y左/z上
+# 装到云台上后用 calibrate_handeye 标定替换
+R_camera2gimbal: [0, 0, 1, -1, 0, 0, 0, -1, 0]
+t_camera2gimbal: [0, 0, 0]
+# 是否读取 DM_IMU 四元数（串口 /dev/ttyACM0）。false 时世界系角度=云台系角度
+use_imu: false
+
 # ---- ResNet50 网格检测参数（detector 为 grid 时生效）----
 model_path: "model/nailong.onnx"
 input_size: 224

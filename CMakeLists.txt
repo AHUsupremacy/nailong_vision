@@ -8,8 +8,10 @@ message(STATUS "--------------------CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}-------
 
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
 
 add_subdirectory(tools)
@@ -17,7 +19,7 @@ add_subdirectory(io)
 add_subdirectory(tasks/nailong)
 
 add_executable(nailong src/nailong.cpp)
-target_link_libraries(nailong ${OpenCV_LIBS} yaml-cpp tools io nailong_detector)
+target_link_libraries(nailong ${OpenCV_LIBS} yaml-cpp Eigen3::Eigen tools io nailong_detector)
 
 # 模型文件拷贝到 build 目录，方便直接运行
 add_custom_command(TARGET nailong POST_BUILD
