@@ -2,6 +2,7 @@
 // 逐帧跑 YOLOX 检测 + 方向解算, 画框显示, 显示实际 FPS / 检出率
 // q 或 Ctrl+C 退出
 #include <algorithm>
+#include <filesystem>
 #include <cstdlib>
 #include <chrono>
 #include <iomanip>
@@ -15,21 +16,31 @@
 
 int main(int argc, char * argv[])
 {
-  if (argc < 2) {
-    std::cout << "用法: video_test <视频路径> [配置文件路径]" << std::endl;
-    return 0;
+  // 无参数: 默认跑 test_videos/ 下所有视频; 有参数: 只跑指定的那个
+  std::vector<std::string> videos;
+  if (argc >= 2) {
+    videos.push_back(argv[1]);
+  } else {
+    for (const auto & entry : std::filesystem::directory_iterator("test_videos"))
+      if (entry.is_regular_file()) videos.push_back(entry.path().string());
+    std::sort(videos.begin(), videos.end());
+    if (videos.empty()) {
+      std::cout << "test_videos/ 下没有视频, 用法: video_test <视频路径>" << std::endl;
+      return 0;
+    }
   }
   auto config_path = argc > 2 ? argv[2] : "configs/nailong.yaml";
 
-  cv::VideoCapture cap(argv[1]);
+  for (const auto & video_path : videos) {
+  cv::VideoCapture cap(video_path);
   if (!cap.isOpened()) {
-    std::cout << "无法打开视频: " << argv[1] << std::endl;
-    return 1;
+    std::cout << "无法打开视频: " << video_path << std::endl;
+    continue;
   }
   const bool headless = std::getenv("NAILONG_HEADLESS") != nullptr;
   double video_fps = cap.get(cv::CAP_PROP_FPS);
   if (video_fps <= 0 || video_fps > 240) video_fps = 30;
-  std::cout << "视频: " << argv[1] << " " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
+  std::cout << "视频: " << video_path << " " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
             << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " " << video_fps << "fps" << std::endl;
 
   nailong::YoloxDetector detector(config_path);
@@ -101,5 +112,6 @@ int main(int argc, char * argv[])
 
   std::cout << "总帧数: " << frame_idx + 1 << "  检出帧: " << hit_count << std::endl;
   cv::destroyAllWindows();
+  }  // for videos
   return 0;
 }
