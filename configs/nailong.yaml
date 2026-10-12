@@ -3,6 +3,11 @@
 # "video0"  = USB 相机（V4L，/dev/videoX）
 camera_name: "hikrobot"
 
+# ---- 检测器选择 ----
+# "yolox" = YOLOX 检测模型（推荐，直接输出识别框，CPU 实时）
+# "grid"  = ResNet50 二分类 + 网格定位（旧方案，兼容保留）
+detector: "yolox"
+
 # ---- 工业相机参数（海康 MV-CS016-10UC）----
 exposure_ms: 2
 gain: 16
@@ -14,19 +19,22 @@ image_height: 720
 usb_frame_rate: 30
 usb_exposure: -5
 
-# ---- 模型参数 ----
-model_path: "model/nailong.onnx"
-input_size: 224              # ResNet50 输入尺寸
-min_confidence: 0.8          # 置信度阈值
+# ---- YOLOX 检测参数 ----
+yolox_model_path: "model/nailong_v2.6_tiny.onnx"
+yolox_input_size: 416         # tiny 模型输入尺寸
+yolox_confidence: 0.3         # 置信度阈值
+yolox_nms: 0.45               # NMS IoU 阈值
+yolox_class_id: 1             # labels.txt: 0=bg 1=nailong 2=anime 3=human 4=emoji 5=long 6=other 7=htgt
 
-# ---- 网格定位 ----
-# 把画面切成 grid_rows x grid_cols，逐格推理，命中的格子画识别框
-# 1x1 = 整图一个框（最快）；2x2 或 3x3 = 局部框（更准但更慢）
+# ---- ResNet50 网格检测参数（detector 为 grid 时生效）----
+model_path: "model/nailong.onnx"
+input_size: 224
+min_confidence: 0.8
 grid_rows: 2
 grid_cols: 2
 
 # ---- 推理频率 ----
-infer_every: 2               # 每 N 帧推理一次（CPU 建议 2~5）
+infer_every: 2               # 每 N 帧推理一次（YOLOX tiny 很快，可以设 1）
 
 # ---- 显示 ----
-show: true                  # false = 无窗口（headless / NUC 无显示器）
+show: true                   # false = 无窗口（headless，或用 --headless 参数）

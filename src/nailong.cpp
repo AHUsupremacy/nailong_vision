@@ -2,11 +2,13 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 
 #include "io/camera.hpp"
 #include "tasks/nailong/detector.hpp"
+#include "tasks/nailong/yolox_detector.hpp"
 #include "tools/exiter.hpp"
 
 const std::string keys =
@@ -31,7 +33,17 @@ int main(int argc, char * argv[])
   tools::Exiter exiter;
 
   io::Camera camera(config_path);
-  nailong::Detector detector(config_path);
+  auto yaml_all = YAML::LoadFile(config_path);
+  const std::string detector_type =
+    yaml_all["detector"] ? yaml_all["detector"].as<std::string>() : std::string("yolox");
+  // 检测器工厂: yolox = YOLOX 检测 (推荐); grid = ResNet50 网格分类 (兼容旧配置)
+  std::unique_ptr<nailong::YoloxDetector> yolox_detector;
+  std::unique_ptr<nailong::Detector> grid_detector;
+  if (detector_type == "yolox") {
+    yolox_detector = std::make_unique<nailong::YoloxDetector>(config_path);
+  } else {
+    grid_detector = std::make_unique<nailong::Detector>(config_path);
+  }
 
   cv::Mat img;
   std::chrono::steady_clock::time_point t;
@@ -51,7 +63,8 @@ int main(int argc, char * argv[])
     auto t0 = std::chrono::steady_clock::now();
 
     if (frame_idx % infer_every == 0) {
-      last_result = detector.detect(img);
+      last_result =
+        yolox_detector ? yolox_detector->detect(img) : grid_detector->detect(img);
       auto t1 = std::chrono::steady_clock::now();
       infer_ms = 0.9 * infer_ms + 0.1 * std::chrono::duration<double, std::milli>(t1 - t0).count();
     }
@@ -105,6 +118,7 @@ int main(int argc, char * argv[])
   std::cout << "[nailong_vision] done" << std::endl;
   return 0;
 }
+
 
 
 

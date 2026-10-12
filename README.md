@@ -1,6 +1,13 @@
 # nailong_vision
 
 参考 sp_vision 工程结构实现的奶龙（Nailong）摄像头实时识别工程。
+
+**检测方案**（默认）：YOLOX 检测模型，直接输出识别框，CPU 实时
+- 模型来自开源项目 [nkxingxh/NailongDetection](https://github.com/nkxingxh/NailongDetection)（nailong_v2.6_tiny，AGPL-3.0），19.3MB，416x416 输入，CPU 单帧约 60ms
+- 支持多类别（nailong/anime/human/emoji/long/other/htgt），本工程只用 nailong 类
+
+**旧方案**（保留兼容）：ResNet50 二分类 + 网格定位，`detector: "grid"` 切换
+
 支持两种相机（参考 sp_vision `io::Camera` 工厂，`standard_mpc` 同款）：
 
 - **海康工业相机 MV-CS016-10UC**（`camera_name: "hikrobot"`，MVS SDK + 取图线程 + 守护重连）
@@ -23,13 +30,15 @@ nailong_vision/
 │       ├── include/          # MVS SDK 头文件
 │       └── lib/              # libMvCameraControl.so（amd64 / arm64）
 ├── tasks/nailong/
-│   ├── detector.hpp / .cpp   # ResNet50(onnx) + 网格定位，输出识别框
+│   ├── yolox_detector.hpp/.cpp # YOLOX 检测器（默认，直接输出识别框）
+│   └── detector.hpp / .cpp     # ResNet50(onnx) + 网格定位（旧方案）
 ├── tools/
 │   ├── thread_safe_queue.hpp # 线程安全队列（同 sp_vision）
 │   ├── exiter.hpp / .cpp     # Ctrl-C 退出（同 sp_vision）
 │   └── export_onnx.py        # nailong.pth -> nailong.onnx 转换脚本
 ├── model/
-│   └── nailong.onnx          # 模型权重（已导出，89.6 MB）
+│   ├── nailong_v2.6_tiny.onnx  # YOLOX 检测模型（默认，19.3 MB）
+│   └── nailong.onnx            # ResNet50 分类模型（旧方案，89.6 MB）
 └── src/
     └── nailong.cpp           # 主程序
 ```
@@ -84,6 +93,10 @@ cmake --build build
 | 参数 | 说明 |
 |---|---|
 | `camera_name` | `"hikrobot"` = 海康工业相机；`"video0"` = USB 相机（V4L，对应 `/dev/video0`） |
+| `detector` | `"yolox"` = YOLOX 检测（默认推荐）；`"grid"` = ResNet50 网格分类 |
+| `yolox_model_path` | YOLOX onnx 模型路径 |
+| `yolox_confidence` | YOLOX 置信度阈值（默认 0.3） |
+| `yolox_class_id` | 检测类别 id（1 = nailong） |
 | `exposure_ms` | 海康相机曝光（ms） |
 | `gain` | 海康相机增益 |
 | `vid_pid` | 海康相机 USB vid:pid（默认 `2bdf:0001`） |
@@ -98,7 +111,8 @@ cmake --build build
 
 ## 模型来源
 
-- 原始模型: [spawner1145/NailongRecognize](https://github.com/spawner1145/NailongRecognize)（ResNet50 二分类，class 1 = 奶龙）
+- 检测模型: [nkxingxh/NailongDetection](https://github.com/nkxingxh/NailongDetection) v2.6 tiny（YOLOX，AGPL-3.0）
+- 旧分类模型: [spawner1145/NailongRecognize](https://github.com/spawner1145/NailongRecognize)（ResNet50 二分类，class 1 = 奶龙）
 - 已用 `tools/export_onnx.py` 从 `nailong.pth` 导出为 `model/nailong.onnx`
 - 如需重新导出: `python tools/export_onnx.py --pth <nailong.pth路径> --out model/nailong.onnx`（需 torch + torchvision + onnx）
 
