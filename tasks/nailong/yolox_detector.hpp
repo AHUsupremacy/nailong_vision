@@ -25,6 +25,7 @@ private:
   int input_size_;        // 416 (tiny)
   float conf_threshold_;  // 置信度阈值
   float nms_threshold_;
+  float expand_ratio_;   // 框扩展系数（模型只框脸部核心，>1 外扩包住整个头）
   int nailong_class_id_;  // labels.txt 里 nailong = 1
   // 预生成的 anchor grid: (grid_x, grid_y, stride) 按输出行序
   cv::Mat grids_;         // CV_32F, N x 3

@@ -13,6 +13,9 @@ YoloxDetector::YoloxDetector(const std::string & config_path)
   input_size_ = yaml["yolox_input_size"] ? yaml["yolox_input_size"].as<int>() : 416;
   conf_threshold_ = yaml["yolox_confidence"] ? yaml["yolox_confidence"].as<float>() : 0.3f;
   nms_threshold_ = yaml["yolox_nms"] ? yaml["yolox_nms"].as<float>() : 0.45f;
+  // 模型标注风格只框脸部核心区域，扩展系数 > 1 时以中心为基准外扩
+  // 1.3~1.5 通常能包住整个头部，对跟踪无影响（中心不变）
+  expand_ratio_ = yaml["yolox_expand"] ? yaml["yolox_expand"].as<float>() : 1.4f;
   nailong_class_id_ = yaml["yolox_class_id"] ? yaml["yolox_class_id"].as<int>() : 1;
 
   // 预生成 anchor grid：strides [8,16,32]，每块行序 y*ws+x
@@ -88,7 +91,20 @@ std::vector<Detection> YoloxDetector::detect(const cv::Mat & img)
     float y1 = (cy - bh / 2 - dy) / r;
     float w = bw / r, h = bh / r;
 
-    boxes.push_back({cvRound(x1), cvRound(y1), cvRound(w), cvRound(h)});
+    // 中心不变外扩
+    if (expand_ratio_ > 1.0f) {
+      const float ecx = x1 + w / 2, ecy = y1 + h / 2;
+      w *= expand_ratio_;
+      h *= expand_ratio_;
+      x1 = ecx - w / 2;
+      y1 = ecy - h / 2;
+    }
+    // 裁剪到图像边界内
+    const float cx2 = std::clamp(x1 + w, 0.0f, static_cast<float>(img.cols));
+    const float cy2 = std::clamp(y1 + h, 0.0f, static_cast<float>(img.rows));
+    x1 = std::clamp(x1, 0.0f, static_cast<float>(img.cols));
+    y1 = std::clamp(y1, 0.0f, static_cast<float>(img.rows));
+    boxes.push_back({cvRound(x1), cvRound(y1), cvRound(cx2 - x1), cvRound(cy2 - y1)});
     scores.push_back(score);
     class_ids.push_back(class_id);
   }
